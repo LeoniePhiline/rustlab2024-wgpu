@@ -34,7 +34,7 @@ impl From<&ArcballCamera<f32>> for CameraUniform {
 }
 
 pub struct Scene {
-    // camera_buffer: wgpu::Buffer,
+    camera_buffer: wgpu::Buffer,
     camera: ArcballCamera<f32>,
     pub texture: Texture,
     bind_group_layout: wgpu::BindGroupLayout,
@@ -91,7 +91,11 @@ impl Scene {
         // Remember to use bytemuck to turn our camera uniform into a byte slice.
         // As usage type, we require two: a uniform, to actually expose the buffer to our shader,
         // and a copy destination, so we can write to the buffer from within Rust to update the camera.
-        // let camera_buffer = ...
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("camera_buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -102,8 +106,16 @@ impl Scene {
                 // The format of our texture can be access through `texture.format` and it is two-dimensional.
                 // We again specify no count as this is not an array of textures.
                 // The binding index must match the index of `@binding(..)` in our shader.
-                // wgpu::BindGroupLayoutEntry { ... },
-                 
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: texture.format,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
                 // 3. This time, we also include a second item in our bind group: the camera uniform.
                 // Again, this must be visible to the compute shader stage.
                 // The type of our buffer is uniform, not storage.
@@ -115,7 +127,16 @@ impl Scene {
                 // buffer has a limit of at least 128 megabytes.
                 // You can find out more about the differences on:
                 // https://webgpufundamentals.org/webgpu/lessons/webgpu-storage-buffers.html
-                // wgpu::BindGroupLayoutEntry { ... },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
             label: Some("bind_group_layout"),
         });
@@ -127,8 +148,14 @@ impl Scene {
                 // WebGPU buffers can be converted into a resource through their `as_entire_binding`
                 // method.
                 // Make sure to bind them to their correct index!
-                // wgpu::BindGroupEntry { ... },
-                // wgpu::BindGroupEntry { ... },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: camera_buffer.as_entire_binding(),
+                },
             ],
             label: Some("bind_group"),
         });
@@ -150,7 +177,7 @@ impl Scene {
         });
 
         Self {
-            // camera_buffer,
+            camera_buffer,
             camera,
             texture,
             bind_group_layout,
@@ -200,7 +227,7 @@ impl Scene {
         // This way we ensure we are _at least_ 1 short of the next number dividable by 8.
         // As integer division is always floored, this trick gives us the desired ceiling.
         // In Z direction, we only want one workgroup.
-        // cpass.dispatch...
+        cpass.dispatch_workgroups((width + 7) / 8, (height + 7) / 8, 1);
     }
 
     pub fn resize_texture(
@@ -213,10 +240,29 @@ impl Scene {
         // 6. As mentioned in `Application::resize`, we have to recreate a texture to resize it.
         // Recreate (and reassign) our `self.texture` here using the same parameters as in
         // `Scene::new`, but with the new width and height.
-        // self.texture = ...
+        self.texture = Texture::new(
+            device,
+            (width, height),
+            Some("scene texture"),
+            wgpu::TextureFormat::Rgba8Unorm,
+            true,
+        );
 
         // 7. Recreate `self.bind_group` just like in `Scene::new` so it uses the new texture.
-        // self.bind_group = ...
+        self.bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: self.camera_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("compute_bind_group"),
+        });
 
         // Updating the size of the scene also affects our camera perspective.
         self.camera.update_screen(width as f32, height as f32);
@@ -234,7 +280,7 @@ impl Scene {
         // bytemuck.
         //
         // Don't submit the queue yet, it will be submitted together with our compute and render pass.
-        // queue.write...
+        queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[uniform]));
     }
 
     pub fn reset_camera(&mut self, queue: &wgpu::Queue) {

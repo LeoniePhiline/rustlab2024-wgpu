@@ -83,8 +83,8 @@ fn render(@builtin(global_invocation_id) gid: vec3<u32>) {
     // on the viewport.
     // Because the viewport's coordinates are not relative to one of the edges but to its center,
     // you must also subtract half of the viewport's width / height.
-    // let u = ...
-    // let v = ...
+    let u = x / width * viewport_width - 0.5 * viewport_width;
+    let v = y / height *  viewport_height - 0.5 * viewport_height;
 
     // 2. Now we can finally compute the direction of our ray. All rays begin at the camera's
     // origin and then go through the desired pixel's position on the viewport.
@@ -97,11 +97,11 @@ fn render(@builtin(global_invocation_id) gid: vec3<u32>) {
     // To do this, add the viewport coordinate u multiplied by the viewport's right pointing
     // horizontal direction (to translate the offset into scene coordinates), and the viewport
     // coordinate v multiplied by the viewport's upwards pointing vertical direction.
-    // let dir = ...
+    let dir = u * normalize(horizontal) + v * normalize(vertical) + focal_length * view_direction;
 
     // 3. Instead of calculating this static gradient as output color, call ray_color with the
     // camera's origin and the computed ray direction.
-    let color = vec4<f32>(x / width, y / height, 1.0, 1.0);
+    let color = ray_color(origin, dir);
 
     textureStore(frame, vec2<i32>(i32(gid.x), i32(gid.y)), color);
 }
@@ -144,5 +144,18 @@ fn hit_sphere(center: vec3<f32>, radius: f32, origin: vec3<f32>, dir: vec3<f32>)
     // An unsolvable square root (negative discriminant) means we have no intersection.
     // In this case, return -1.0.
 
-    return -1.0;
+    // Distance between sphere center and ray origin
+    let oc = center - origin;
+
+    // Square of the ray direction's magnitude
+    let a = dot(dir, dir);
+
+    let b = -2.0 * dot(dir, oc);
+    let c = dot(oc, oc) - radius * radius;
+    let discriminant = b * b - 4 * a * c;
+
+    if (discriminant < 0) {
+        return -1.0;
+    }
+    return (-b - sqrt(discriminant) ) / (2.0 * a);
 }

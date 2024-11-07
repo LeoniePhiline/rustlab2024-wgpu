@@ -21,8 +21,8 @@ pub struct Application {
     device: wgpu::Device,
     queue: wgpu::Queue,
     scene: Scene,
-    // render_bind_group_layout: BindGroupLayout,
-    // render_bind_group: BindGroup,
+    render_bind_group_layout: BindGroupLayout,
+    render_bind_group: BindGroup,
     render_pipeline: RenderPipeline,
     mouse_down: bool,
 }
@@ -83,7 +83,20 @@ impl Application {
         // one pixel on the screen.
         // - Also, we don't want multisampling as our texture only has one layer.
         // - As we don't bind an array of textures but just a single texture, our count is `None`.
-        // let render_bind_group_layout = ...
+        let render_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("render_bind_group_layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                }],
+            });
         
         // 2. After creating the layout for our bind group, we can create the bind group itself.
         // This is again done using our `device`.
@@ -94,7 +107,14 @@ impl Application {
         // `scene.texture.view`.
         // To pass a texture view as resource of a bind group entry, it must be wrapped in the
         // `wgpu::BindingResource` enum.
-        // let render_bind_group = ...
+        let render_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("render_bind_group"),
+            layout: &render_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&scene.texture.view),
+            }],
+        });
 
         let shader_src = include_str!("application.wgsl");
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -108,7 +128,7 @@ impl Application {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render_pipeline_layout"),
                 // TODO: uncomment after you created your bind group layout
-                // bind_group_layouts: &[&render_bind_group_layout],
+                bind_group_layouts: &[&render_bind_group_layout],
                 push_constant_ranges: &[],
                 ..Default::default()
             });
@@ -147,8 +167,8 @@ impl Application {
             device,
             queue,
             scene,
-            // render_bind_group_layout,
-            // render_bind_group,
+            render_bind_group_layout,
+            render_bind_group,
             render_pipeline,
             mouse_down: false,
         })
@@ -173,7 +193,14 @@ impl Application {
         // Recreate the bind group here (overwriting the current one in `self.render_bind_group`),
         // using the same arguments as in `Application::new` (`self.render_bind_group_layout` as
         // layout, `self.scene.texture.view` as texture view).
-        // self.render_bind_group = ...
+        self.render_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("render_bind_group"),
+            layout: &self.render_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&self.scene.texture.view),
+            }],
+        });
     }
 
     pub fn handle_event(&mut self, window: &Window, event: &WindowEvent) -> bool {
@@ -269,7 +296,7 @@ impl Application {
         // bind group to our render bind group first before performing the draw call.
         // Set the bind group to index 0, as that is the index we specified in our bind
         // group layout, without any offsets (empty slice).
-        // rpass.set...
+        rpass.set_bind_group(0, &self.render_bind_group, &[]);
 
         rpass.draw(0..6, 0..1);
         drop(rpass);
