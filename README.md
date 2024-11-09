@@ -22,7 +22,7 @@ Tasks:
     - `Scene::new`
     - `Scene::render`
     - Try running your application now, it should display a gradient covering the whole screen.
-3. Implement your ray tracing shader in `src/scene.wgsl`:
+3. Implement your ray tracing shader in `src/scene.wgsl`: <<<< TODO: CONTINUE HERE
     - Start with the `render` function that is the entrypoint to our shader.
     - Read the implementation of `ray_color`. If anything here is unclear, raise your question to the group.
     - Implement the `hit_sphere` function next for computing the intersection of a ray and a sphere.

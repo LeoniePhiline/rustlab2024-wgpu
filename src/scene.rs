@@ -1,5 +1,8 @@
 use cgmath::{Vector2, Vector3};
-use wgpu::util::DeviceExt;
+use wgpu::{
+    util::DeviceExt, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType,
+    BufferBindingType, BufferUsages, ShaderStages, StorageTextureAccess, TextureViewDimension,
+};
 
 use crate::{
     arcball::{ArcballCamera, CameraOperation},
@@ -34,7 +37,7 @@ impl From<&ArcballCamera<f32>> for CameraUniform {
 }
 
 pub struct Scene {
-    // camera_buffer: wgpu::Buffer,
+    camera_buffer: wgpu::Buffer,
     camera: ArcballCamera<f32>,
     pub texture: Texture,
     bind_group_layout: wgpu::BindGroupLayout,
@@ -91,7 +94,11 @@ impl Scene {
         // Remember to use bytemuck to turn our camera uniform into a byte slice.
         // As usage type, we require two: a uniform, to actually expose the buffer to our shader,
         // and a copy destination, so we can write to the buffer from within Rust to update the camera.
-        // let camera_buffer = ...
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -102,8 +109,16 @@ impl Scene {
                 // The format of our texture can be access through `texture.format` and it is two-dimensional.
                 // We again specify no count as this is not an array of textures.
                 // The binding index must match the index of `@binding(..)` in our shader.
-                // wgpu::BindGroupLayoutEntry { ... },
-                 
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::StorageTexture {
+                        access: StorageTextureAccess::WriteOnly,
+                        format: texture.format,
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
                 // 3. This time, we also include a second item in our bind group: the camera uniform.
                 // Again, this must be visible to the compute shader stage.
                 // The type of our buffer is uniform, not storage.
@@ -115,7 +130,16 @@ impl Scene {
                 // buffer has a limit of at least 128 megabytes.
                 // You can find out more about the differences on:
                 // https://webgpufundamentals.org/webgpu/lessons/webgpu-storage-buffers.html
-                // wgpu::BindGroupLayoutEntry { ... },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
             label: Some("bind_group_layout"),
         });
@@ -127,8 +151,14 @@ impl Scene {
                 // WebGPU buffers can be converted into a resource through their `as_entire_binding`
                 // method.
                 // Make sure to bind them to their correct index!
-                // wgpu::BindGroupEntry { ... },
-                // wgpu::BindGroupEntry { ... },
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&texture.view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: camera_buffer.as_entire_binding(),
+                },
             ],
             label: Some("bind_group"),
         });
@@ -150,7 +180,7 @@ impl Scene {
         });
 
         Self {
-            // camera_buffer,
+            camera_buffer,
             camera,
             texture,
             bind_group_layout,
@@ -200,7 +230,8 @@ impl Scene {
         // This way we ensure we are _at least_ 1 short of the next number dividable by 8.
         // As integer division is always floored, this trick gives us the desired ceiling.
         // In Z direction, we only want one workgroup.
-        // cpass.dispatch...
+
+        cpass.dispatch_workgroups((width + 7) / 8, (height + 7) / 8, 1);
     }
 
     pub fn resize_texture(

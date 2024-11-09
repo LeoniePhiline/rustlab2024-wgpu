@@ -1,11 +1,9 @@
-/*
-If you have semantic or syntactical errors in your shader, the application will crash on launch.
-Scroll past the panic's stack trace to see the actual errors.
-
-These resources may help you with your tasks:
-- https://google.github.io/tour-of-wgsl/ (don't mind the "WebGPU is not supported in this browser")
-- https://webgpufundamentals.org/webgpu/lessons/webgpu-wgsl-function-reference.html
-*/
+// If you have semantic or syntactical errors in your shader, the application will crash on launch.
+// Scroll past the panic's stack trace to see the actual errors.
+// 
+// These resources may help you with your tasks:
+// - https://google.github.io/tour-of-wgsl/ (don't mind the "WebGPU is not supported in this browser")
+// - https://webgpufundamentals.org/webgpu/lessons/webgpu-wgsl-function-reference.html
 
 // We only have on bind group for our compute pipeline, so we use group 0.
 // The scene's texture is the first entry of our bind group, at index 0.

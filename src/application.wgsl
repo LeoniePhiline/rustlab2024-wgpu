@@ -1,11 +1,9 @@
-/*
-If you have semantic or syntactical errors in your shader, the application will crash on launch.
-Scroll past the panic's stack trace to see the actual errors.
-
-These resources may help you with your tasks:
-- https://google.github.io/tour-of-wgsl/ (don't mind the "WebGPU is not supported in this browser")
-- https://webgpufundamentals.org/webgpu/lessons/webgpu-wgsl-function-reference.html
-*/
+// If you have semantic or syntactical errors in your shader, the application will crash on launch.
+// Scroll past the panic's stack trace to see the actual errors.
+// 
+// These resources may help you with your tasks:
+// - https://google.github.io/tour-of-wgsl/ (don't mind the "WebGPU is not supported in this browser")
+// - https://webgpufundamentals.org/webgpu/lessons/webgpu-wgsl-function-reference.html
 
 // two triangles (not yet) covering the screen
 const positions: array<vec2<f32>, 6> = array<vec2<f32>, 6>(
