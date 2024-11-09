@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use anyhow::Result;
 use application::Application;
+use color_eyre::Result;
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
@@ -51,7 +51,11 @@ impl ApplicationWindow {
     }
 }
 
-async fn create_application(window: Arc<Window>, size: LogicalSize<u32>, event_proxy: EventLoopProxy<UserEvent>) {
+async fn create_application(
+    window: Arc<Window>,
+    size: LogicalSize<u32>,
+    event_proxy: EventLoopProxy<UserEvent>,
+) {
     let size = size.to_physical(window.scale_factor());
     log::info!("Initial size: {}x{}", size.width, size.height);
     let app = Application::new(window, size)
