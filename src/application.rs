@@ -11,7 +11,10 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use wgpu::RenderPipeline;
+use wgpu::{
+    core::instance::RequestAdapterOptions, Backends, Instance, InstanceDescriptor, InstanceFlags,
+    PowerPreference, RenderPipeline,
+};
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Application {
@@ -26,17 +29,29 @@ impl Application {
     pub async fn new(window: Arc<Window>, size: PhysicalSize<u32>) -> Result<Self> {
         // 1. We first must create a `wgpu::Instance`.
         // This is the entrypoint to all communication with wgpu.
+        let instance = Instance::new(InstanceDescriptor {
+            backends: Backends::PRIMARY,
+            flags: InstanceFlags::advanced_debugging(),
+            ..Default::default()
+        });
 
         // 2. Next, we create our surface through the instance we created above.
         // For this, we must pass a window for the surface to target.
         // A surface is what anything we draw will be displayed on.
+        let surface = instance.create_surface(window.clone())?;
 
         // 3. Once we have our surface, we request an adapter that is compatible with
         // this surface from our wgpu instance.
         // We want to request a high performance GPU so in case our device is a laptop
         // with two GPUs, we get the more powerful one.
-        // Note that reqeusting an adapter is an asynchronous operation that must be awaited.
+        // Note that requesting an adapter is an asynchronous operation that must be awaited.
         // If no adapter matches our request options, we receive `None`.
+        let request_adapter_options = RequestAdapterOptions {
+            power_preference: PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: Some(&surface),
+        };
+        // let maybe_adapter = instance.request_adapter(&request_adapter_options).await;
 
         // 4. While an adapter represents the a physical GPU, we also need a logical handle
         // to this GPU that enforces feature and memory limitations and is responsible for
@@ -144,7 +159,7 @@ impl Application {
         // We then tell it what operations (ops) to perform on this view:
         // - On load, clear the surface texture using a black color
         // - On store, overwrite the contents of the surface texture (simply called "Store")
-        
+
         // 5. To let the render pass know of the structure of our pipeline, such as
         // shaders, or geometric primitives, set its pipeline to the render pipeline
         // we created in our constructor.
