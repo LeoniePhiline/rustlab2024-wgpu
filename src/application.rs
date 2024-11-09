@@ -35,7 +35,7 @@ impl Application {
         // this surface from our wgpu instance.
         // We want to request a high performance GPU so in case our device is a laptop
         // with two GPUs, we get the more powerful one.
-        // Note that reqeusting an adapter is an asynchronous operation that must be awaited.
+        // Note that requesting an adapter is an asynchronous operation that must be awaited.
         // If no adapter matches our request options, we receive `None`.
 
         // 4. While an adapter represents the a physical GPU, we also need a logical handle
